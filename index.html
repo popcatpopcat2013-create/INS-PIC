@@ -215,6 +215,8 @@ var items=[];
 var nextId=1;
 var previewMode='';
 var viewerIndex=-1;
+var viewerList=[];
+var viewerPos=-1;
 var touchX=0,touchY=0,touchTime=0;
 
 var imageInput=document.getElementById('imageInput');
@@ -408,14 +410,19 @@ function removeItem(id){
   }
 }
 
+function getPreviewIndices(mode){
+  var result=[];
+  items.forEach(function(item,index){
+    var ok=mode==='images'?isImage(item):mode==='videos'?isVideo(item):item.favorite;
+    if(ok)result.push(index);
+  });
+  return result;
+}
+
 function renderPreview(mode){
   previewGrid.innerHTML='';
   previewGrid.className='';
-  var shown=[];
-  items.forEach(function(item,index){
-    var ok=mode==='images'?isImage(item):mode==='videos'?isVideo(item):item.favorite;
-    if(ok)shown.push({item:item,index:index});
-  });
+  var shown=getPreviewIndices(mode).map(function(index){return {item:items[index],index:index}});
 
   if(mode==='images')previewGrid.className='preview-images-grid';
   else if(mode==='videos')previewGrid.className='preview-videos-grid';
@@ -442,7 +449,7 @@ function renderPreview(mode){
     if(item.favorite){
       var heart=document.createElement('div');heart.className='preview-heart';heart.innerHTML=heartSVG();card.appendChild(heart);
     }
-    card.addEventListener('click',function(){openViewer(index)});
+    card.addEventListener('click',function(){openViewer(index,previewMode)});
     previewGrid.appendChild(card);
   });
 }
@@ -475,8 +482,12 @@ function clearViewerMedia(){
     viewerVideoHolder.removeChild(old);
   }
 }
-function openViewer(index){
+function openViewer(index,mode){
   if(index<0||index>=items.length)return;
+  mode=mode||previewMode;
+  viewerList=getPreviewIndices(mode);
+  viewerPos=viewerList.indexOf(index);
+  if(viewerPos===-1)return;
   viewerIndex=index;
   var item=items[index];
   clearViewerMedia();
@@ -498,16 +509,19 @@ function closeViewerNow(){
   viewer.classList.remove('open');
   clearViewerMedia();
   viewerIndex=-1;
+  viewerList=[];
+  viewerPos=-1;
 }
 function closeViewerSafe(){closeViewerNow()}
 function changeViewer(direction){
-  if(viewerIndex===-1)return;
-  var next=viewerIndex+direction;
-  if(next<0||next>=items.length)return;
+  if(viewerIndex===-1||viewerPos===-1||!viewerList.length)return;
+  var nextPos=viewerPos+direction;
+  if(nextPos<0||nextPos>=viewerList.length)return;
+  var nextIndex=viewerList[nextPos];
   viewerInner.classList.remove('swipe-left','swipe-right');
   void viewerInner.offsetWidth;
   viewerInner.classList.add(direction>0?'swipe-left':'swipe-right');
-  openViewer(next);
+  openViewer(nextIndex,previewMode);
 }
 
 viewer.addEventListener('touchstart',function(e){
