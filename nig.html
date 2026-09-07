@@ -1,0 +1,2487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Image Upload &amp; Preview</title>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --card-bg: #ffffff;
+    --text-primary: #1d1d1f;
+    --text-secondary: #86868b;
+    --accent: #0071e3;
+    --accent-hover: #0077ed;
+    --accent-active: #005fc4;
+    --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.08);
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+      "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 44px 24px 80px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+
+  header h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+  }
+
+  header p {
+    font-size: 17px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .upload-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 40px;
+  }
+
+  .upload-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 600;
+    font-family: inherit;
+    padding: 15px 30px;
+    border-radius: 980px;
+    box-shadow: 0 4px 16px rgba(0, 113, 227, 0.32);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform .15s ease, background-color .15s ease;
+  }
+
+  .upload-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .upload-btn:active {
+    transform: scale(.96);
+    background: var(--accent-active);
+  }
+
+  @media (hover: hover) {
+    .upload-btn:hover {
+      background: var(--accent-hover);
+    }
+  }
+
+  .count-label {
+    font-size: 15px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    min-height: 18px;
+  }
+
+  .secondary-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .preview-all-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    color: var(--accent);
+    border: 1.5px solid var(--accent);
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    padding: 9px 18px;
+    border-radius: 980px;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform .15s ease, background-color .15s ease;
+  }
+
+  .preview-all-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .preview-all-btn:active {
+    transform: scale(.96);
+    background: rgba(0, 113, 227, .08);
+  }
+
+  .clear-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+
+  .clear-btn:active {
+    opacity: .5;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 70px 20px;
+    border: 2px dashed rgba(0,0,0,.10);
+    border-radius: 20px;
+    color: var(--text-secondary);
+  }
+
+  .empty-state svg {
+    width: 46px;
+    height: 46px;
+    margin-bottom: 14px;
+    opacity: .4;
+  }
+
+  .empty-state p {
+    margin: 0;
+    font-size: 16px;
+  }
+
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+  }
+
+  .photo-card,
+  .masonry-item {
+    position: relative;
+    animation: popIn .3s cubic-bezier(.2,.8,.2,1) backwards;
+  }
+
+  .photo-card {
+    aspect-ratio: 1 / 1;
+  }
+
+  .photo-card.removing,
+  .masonry-item.removing {
+    animation: popOut .22s ease forwards;
+    pointer-events: none;
+  }
+
+  @keyframes popIn {
+    from {
+      opacity: 0;
+      transform: scale(.85);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes popOut {
+    to {
+      opacity: 0;
+      transform: scale(.8);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .photo-card,
+    .photo-card.removing,
+    .masonry-item,
+    .masonry-item.removing {
+      animation: none;
+    }
+  }
+
+  .photo-card img,
+  .masonry-item img {
+    display: block;
+    border-radius: 16px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .photo-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: var(--card-bg);
+  }
+
+  .masonry-item img {
+    width: 100%;
+    height: auto;
+    cursor: pointer;
+    transition: transform .18s ease;
+  }
+
+  @media (hover: hover) {
+    .masonry-item img:hover {
+      transform: scale(.985);
+    }
+  }
+
+  /* Delete */
+
+  .delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0,0,0,.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 2px 6px rgba(0,0,0,.25);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    touch-action: manipulation;
+    z-index: 2;
+  }
+
+  .delete-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .delete-btn:active {
+    transform: scale(.85);
+    background: rgba(0,0,0,.65);
+  }
+
+  /* Favorite - MAIN UPLOAD PAGE ONLY */
+
+  .favorite-btn {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0,0,0,.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 2px 6px rgba(0,0,0,.25);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    touch-action: manipulation;
+    z-index: 2;
+    transition: transform .15s ease, background-color .15s ease;
+  }
+
+  .favorite-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .favorite-btn.active {
+    background: rgba(0,0,0,.55);
+  }
+
+  .favorite-btn.active svg {
+    fill: currentColor;
+  }
+
+  .favorite-btn:active {
+    transform: scale(.84);
+  }
+
+  /* ==========================================
+     PREVIEW ALL
+  ========================================== */
+
+  .preview-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 1000;
+    transform: translateY(100%);
+    transition: transform .32s cubic-bezier(.22,1,.36,1);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .preview-overlay.open {
+    transform: translateY(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .preview-overlay {
+      transition: none;
+    }
+  }
+
+  .preview-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: rgba(245,245,247,.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(0,0,0,.08);
+  }
+
+  .preview-header h2 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+  }
+
+  .done-btn {
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 17px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+
+  .done-btn:active {
+    opacity: .5;
+  }
+
+  .masonry {
+    column-width: 200px;
+    column-gap: 16px;
+    padding: 20px;
+  }
+
+  .masonry-item {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin-bottom: 16px;
+  }
+
+  /* Favorite indicator in Preview All
+     TOP RIGHT - DISPLAY ONLY */
+
+  .masonry-favorite {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(0,0,0,.48);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .masonry-favorite svg {
+    width: 17px;
+    height: 17px;
+    fill: currentColor;
+  }
+
+  /* ==========================================
+     INDIVIDUAL IMAGE PREVIEW
+  ========================================== */
+
+  .image-preview {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0,0,0,.55);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity .22s ease,
+      visibility .22s ease;
+    touch-action: none;
+  }
+
+  .image-preview.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .image-preview-inner {
+    max-width: min(92vw, 900px);
+    max-height: 88vh;
+    position: relative;
+    transform: scale(.88);
+    opacity: 0;
+    transition:
+      transform .25s cubic-bezier(.2,.8,.2,1),
+      opacity .2s ease;
+    will-change: transform;
+  }
+
+  .image-preview.open .image-preview-inner {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  .image-preview img {
+    display: block;
+    max-width: 92vw;
+    max-height: 88vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 18px;
+    box-shadow:
+      0 20px 60px rgba(0,0,0,.35),
+      0 4px 16px rgba(0,0,0,.25);
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+
+  /* Favorite indicator in enlarged preview
+     BOTTOM LEFT - DISPLAY ONLY */
+
+  .preview-favorite-btn {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0,0,0,.58);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 3px 12px rgba(0,0,0,.28);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    z-index: 3;
+
+    /* Display only */
+    pointer-events: none;
+    cursor: default;
+  }
+
+  .preview-favorite-btn svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .preview-favorite-btn.active svg {
+    fill: currentColor;
+  }
+
+  /* ไม่มี active click animation
+     เพราะปุ่มนี้กดไม่ได้ */
+
+  /* Swipe animation */
+
+  .image-preview-inner.swipe-left {
+    animation: swipeLeft .22s ease;
+  }
+
+  .image-preview-inner.swipe-right {
+    animation: swipeRight .22s ease;
+  }
+
+  @keyframes swipeLeft {
+    0% {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+
+    45% {
+      transform: translateX(-22px) scale(.97);
+      opacity: .45;
+    }
+
+    100% {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes swipeRight {
+    0% {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+
+    45% {
+      transform: translateX(22px) scale(.97);
+      opacity: .45;
+    }
+
+    100% {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  .image-preview-close {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(40,40,40,.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 3px 12px rgba(0,0,0,.25);
+    z-index: 2;
+  }
+
+  .image-preview-close svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 32px 16px 60px;
+    }
+
+    .gallery {
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .masonry {
+      column-width: 140px;
+      column-gap: 12px;
+      padding: 16px;
+    }
+
+    .masonry-item {
+      margin-bottom: 12px;
+    }
+
+    .image-preview {
+      padding: 16px;
+    }
+
+    .image-preview img {
+      max-width: 94vw;
+      max-height: 84vh;
+      border-radius: 16px;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="container" id="mainContainer">
+
+  <header>
+    <h1>Image Upload &amp; Preview</h1>
+    <p>Select photos from your device to preview them instantly</p>
+  </header>
+
+  <div class="upload-area">
+
+    <input
+      type="file"
+      id="fileInput"
+      accept="image/*"
+      multiple
+      style="display:none;"
+    >
+
+    <button
+      type="button"
+      class="upload-btn"
+      id="uploadBtn"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
+
+      <span>Choose Photos</span>
+    </button>
+
+    <span
+      class="count-label"
+      id="countLabel"
+    ></span>
+
+    <div class="secondary-actions">
+
+      <button
+        type="button"
+        class="preview-all-btn"
+        id="previewAllBtn"
+        style="display:none;"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+
+        <span>Preview All</span>
+      </button>
+
+      <button
+        type="button"
+        class="clear-btn"
+        id="clearBtn"
+        style="display:none;"
+      >
+        Clear All
+      </button>
+
+    </div>
+  </div>
+
+  <div
+    class="empty-state"
+    id="emptyState"
+  >
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+      <polyline points="21 15 16 10 5 21"></polyline>
+    </svg>
+
+    <p>No photos yet</p>
+  </div>
+
+  <div
+    class="gallery"
+    id="gallery"
+  ></div>
+
+</div>
+
+
+<!-- Preview All -->
+
+<div
+  class="preview-overlay"
+  id="previewOverlay"
+  role="dialog"
+  aria-modal="true"
+  aria-label="All photos"
+>
+
+  <div class="preview-header">
+
+    <h2>All Photos</h2>
+
+    <button
+      type="button"
+      class="done-btn"
+      id="doneBtn"
+    >
+      Done
+    </button>
+
+  </div>
+
+  <div
+    class="masonry"
+    id="masonryGallery"
+  ></div>
+
+</div>
+
+
+<!-- Individual Image Preview -->
+
+<div
+  class="image-preview"
+  id="imagePreview"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Photo preview"
+>
+
+  <div
+    class="image-preview-inner"
+    id="imagePreviewInner"
+  >
+
+    <img
+      id="imagePreviewImg"
+      src=""
+      alt="Preview"
+    >
+
+    <!-- Favorite indicator only -->
+    <div
+      class="preview-favorite-btn"
+      id="previewFavoriteBtn"
+      aria-label="Favorite photo"
+      aria-hidden="true"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"></path>
+      </svg>
+    </div>
+
+    <button
+      type="button"
+      class="image-preview-close"
+      id="imagePreviewClose"
+      aria-label="Close image preview"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+      >
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+
+  </div>
+
+</div>
+
+
+<script>
+(function () {
+
+  'use strict';
+
+  /* ==========================================
+     ELEMENTS
+  ========================================== */
+
+  var fileInput =
+    document.getElementById('fileInput');
+
+  var uploadBtn =
+    document.getElementById('uploadBtn');
+
+  var gallery =
+    document.getElementById('gallery');
+
+  var emptyState =
+    document.getElementById('emptyState');
+
+  var countLabel =
+    document.getElementById('countLabel');
+
+  var clearBtn =
+    document.getElementById('clearBtn');
+
+  var previewAllBtn =
+    document.getElementById('previewAllBtn');
+
+  var previewOverlay =
+    document.getElementById('previewOverlay');
+
+  var doneBtn =
+    document.getElementById('doneBtn');
+
+  var masonryGallery =
+    document.getElementById('masonryGallery');
+
+  var mainContainer =
+    document.getElementById('mainContainer');
+
+  var imagePreview =
+    document.getElementById('imagePreview');
+
+  var imagePreviewImg =
+    document.getElementById('imagePreviewImg');
+
+  var imagePreviewClose =
+    document.getElementById('imagePreviewClose');
+
+  var imagePreviewInner =
+    document.getElementById('imagePreviewInner');
+
+  var previewFavoriteBtn =
+    document.getElementById('previewFavoriteBtn');
+
+
+  /* ==========================================
+     PHOTO DATA
+  ========================================== */
+
+  var photos = [];
+  var nextId = 1;
+
+  var currentPreviewIndex = -1;
+
+
+  /* ==========================================
+     INDEXEDDB
+  ========================================== */
+
+  var DB_NAME =
+    'ImageUploadPreviewDB';
+
+  var DB_VERSION = 1;
+
+  var STORE_NAME =
+    'photos';
+
+  var db = null;
+
+
+  function openDatabase() {
+
+    return new Promise(
+      function (resolve, reject) {
+
+        if (!window.indexedDB) {
+
+          reject(
+            new Error(
+              'IndexedDB is not supported.'
+            )
+          );
+
+          return;
+        }
+
+        var request =
+          indexedDB.open(
+            DB_NAME,
+            DB_VERSION
+          );
+
+        request.onupgradeneeded =
+          function (event) {
+
+            var database =
+              event.target.result;
+
+            if (
+              !database.objectStoreNames.contains(
+                STORE_NAME
+              )
+            ) {
+
+              database.createObjectStore(
+                STORE_NAME,
+                {
+                  keyPath: 'id'
+                }
+              );
+
+            }
+
+          };
+
+        request.onsuccess =
+          function (event) {
+
+            db =
+              event.target.result;
+
+            resolve(db);
+
+          };
+
+        request.onerror =
+          function () {
+
+            reject(
+              request.error
+            );
+
+          };
+
+      }
+    );
+
+  }
+
+
+  function savePhotoToDB(photo) {
+
+    if (!db) {
+      return Promise.resolve();
+    }
+
+    return new Promise(
+      function (resolve, reject) {
+
+        var transaction =
+          db.transaction(
+            STORE_NAME,
+            'readwrite'
+          );
+
+        var store =
+          transaction.objectStore(
+            STORE_NAME
+          );
+
+        store.put({
+          id: photo.id,
+          blob: photo.blob,
+          name: photo.name,
+          favorite: !!photo.favorite
+        });
+
+        transaction.oncomplete =
+          function () {
+            resolve();
+          };
+
+        transaction.onerror =
+          function () {
+            reject(
+              transaction.error
+            );
+          };
+
+      }
+    );
+
+  }
+
+
+  function deletePhotoFromDB(id) {
+
+    if (!db) {
+      return Promise.resolve();
+    }
+
+    return new Promise(
+      function (resolve, reject) {
+
+        var transaction =
+          db.transaction(
+            STORE_NAME,
+            'readwrite'
+          );
+
+        var store =
+          transaction.objectStore(
+            STORE_NAME
+          );
+
+        store.delete(id);
+
+        transaction.oncomplete =
+          function () {
+            resolve();
+          };
+
+        transaction.onerror =
+          function () {
+            reject(
+              transaction.error
+            );
+          };
+
+      }
+    );
+
+  }
+
+
+  function clearPhotosFromDB() {
+
+    if (!db) {
+      return Promise.resolve();
+    }
+
+    return new Promise(
+      function (resolve, reject) {
+
+        var transaction =
+          db.transaction(
+            STORE_NAME,
+            'readwrite'
+          );
+
+        var store =
+          transaction.objectStore(
+            STORE_NAME
+          );
+
+        store.clear();
+
+        transaction.oncomplete =
+          function () {
+            resolve();
+          };
+
+        transaction.onerror =
+          function () {
+            reject(
+              transaction.error
+            );
+          };
+
+      }
+    );
+
+  }
+
+
+  function loadPhotosFromDB() {
+
+    return new Promise(
+      function (resolve, reject) {
+
+        if (!db) {
+          resolve([]);
+          return;
+        }
+
+        var transaction =
+          db.transaction(
+            STORE_NAME,
+            'readonly'
+          );
+
+        var store =
+          transaction.objectStore(
+            STORE_NAME
+          );
+
+        var request =
+          store.getAll();
+
+        request.onsuccess =
+          function () {
+
+            resolve(
+              request.result || []
+            );
+
+          };
+
+        request.onerror =
+          function () {
+
+            reject(
+              request.error
+            );
+
+          };
+
+      }
+    );
+
+  }
+
+
+  /* ==========================================
+     CREATE OBJECT URL
+  ========================================== */
+
+  function createPhotoURL(photo) {
+
+    if (photo.url) {
+      return photo.url;
+    }
+
+    photo.url =
+      URL.createObjectURL(
+        photo.blob
+      );
+
+    return photo.url;
+
+  }
+
+
+  /* ==========================================
+     FAVORITE UI
+  ========================================== */
+
+  function updateFavoriteButton(
+    button,
+    isFavorite
+  ) {
+
+    if (!button) {
+      return;
+    }
+
+    button.classList.toggle(
+      'active',
+      !!isFavorite
+    );
+
+    button.setAttribute(
+      'aria-label',
+      isFavorite
+        ? 'Remove from favorites'
+        : 'Add to favorites'
+    );
+
+  }
+
+
+  function toggleFavorite(id) {
+
+    for (
+      var i = 0;
+      i < photos.length;
+      i++
+    ) {
+
+      if (
+        photos[i].id === id
+      ) {
+
+        photos[i].favorite =
+          !photos[i].favorite;
+
+        var isFavorite =
+          photos[i].favorite;
+
+        savePhotoToDB(
+          photos[i]
+        ).catch(
+          function (error) {
+
+            console.error(
+              'Could not save favorite:',
+              error
+            );
+
+          }
+        );
+
+        updateFavoriteButtonsForPhoto(
+          id,
+          isFavorite
+        );
+
+        return;
+
+      }
+
+    }
+
+  }
+
+
+  function updateFavoriteButtonsForPhoto(
+    id,
+    isFavorite
+  ) {
+
+    /* Main upload page favorite button */
+    var buttons =
+      document.querySelectorAll(
+        '[data-favorite-id="' +
+        id +
+        '"]'
+      );
+
+    for (
+      var i = 0;
+      i < buttons.length;
+      i++
+    ) {
+
+      updateFavoriteButton(
+        buttons[i],
+        isFavorite
+      );
+
+    }
+
+    /*
+      Enlarged preview is now display-only.
+      It only reflects the current favorite state.
+    */
+
+    if (
+      currentPreviewIndex !== -1 &&
+      photos[currentPreviewIndex] &&
+      photos[currentPreviewIndex].id === id
+    ) {
+
+      updateFavoriteButton(
+        previewFavoriteBtn,
+        isFavorite
+      );
+
+    }
+
+  }
+
+
+  function makeFavoriteBtn(
+    id,
+    isFavorite
+  ) {
+
+    var favoriteBtn =
+      document.createElement(
+        'button'
+      );
+
+    favoriteBtn.type = 'button';
+
+    favoriteBtn.className =
+      'favorite-btn';
+
+    favoriteBtn.setAttribute(
+      'data-favorite-id',
+      String(id)
+    );
+
+    favoriteBtn.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"></path>' +
+      '</svg>';
+
+    updateFavoriteButton(
+      favoriteBtn,
+      isFavorite
+    );
+
+    favoriteBtn.addEventListener(
+      'click',
+      function (e) {
+
+        e.stopPropagation();
+
+        toggleFavorite(id);
+
+      }
+    );
+
+    return favoriteBtn;
+
+  }
+
+
+  /* ==========================================
+     INITIAL LOAD
+  ========================================== */
+
+  async function initialize() {
+
+    try {
+
+      await openDatabase();
+
+      var savedPhotos =
+        await loadPhotosFromDB();
+
+      savedPhotos.sort(
+        function (a, b) {
+          return a.id - b.id;
+        }
+      );
+
+      savedPhotos.forEach(
+        function (saved) {
+
+          var photo = {
+            id: saved.id,
+            blob: saved.blob,
+            name:
+              saved.name ||
+              'Uploaded photo',
+            favorite:
+              !!saved.favorite,
+            url: null
+          };
+
+          createPhotoURL(photo);
+
+          photos.push(photo);
+
+          addCardToDOM(
+            photo.id,
+            photo.url,
+            photo.name,
+            undefined,
+            photo.favorite
+          );
+
+          if (
+            photo.id >= nextId
+          ) {
+
+            nextId =
+              photo.id + 1;
+
+          }
+
+        }
+      );
+
+      updateUI();
+
+    } catch (error) {
+
+      console.error(
+        'Could not load saved photos:',
+        error
+      );
+
+      updateUI();
+
+    }
+
+  }
+
+
+  /* ==========================================
+     UPLOAD
+  ========================================== */
+
+  uploadBtn.addEventListener(
+    'click',
+    function () {
+
+      fileInput.click();
+
+    }
+  );
+
+
+  fileInput.addEventListener(
+    'change',
+    async function (e) {
+
+      var files =
+        Array.prototype.slice.call(
+          e.target.files || []
+        );
+
+      var validFiles =
+        files.filter(
+          function (file) {
+
+            return file.type &&
+              file.type.indexOf(
+                'image/'
+              ) === 0;
+
+          }
+        );
+
+      for (
+        var i = 0;
+        i < validFiles.length;
+        i++
+      ) {
+
+        var file =
+          validFiles[i];
+
+        var url =
+          URL.createObjectURL(
+            file
+          );
+
+        var id =
+          nextId++;
+
+        var photo = {
+          id: id,
+          blob: file,
+          name: file.name,
+          favorite: false,
+          url: url
+        };
+
+        photos.push(photo);
+
+        addCardToDOM(
+          id,
+          url,
+          file.name,
+          i,
+          false
+        );
+
+        try {
+
+          await savePhotoToDB(
+            photo
+          );
+
+        } catch (error) {
+
+          console.error(
+            'Could not save photo:',
+            error
+          );
+
+        }
+
+      }
+
+      fileInput.value = '';
+
+      updateUI();
+
+    }
+  );
+
+
+  /* ==========================================
+     DELETE BUTTON
+     ONLY ON UPLOAD PAGE
+  ========================================== */
+
+  function makeDeleteBtn(id) {
+
+    var delBtn =
+      document.createElement(
+        'button'
+      );
+
+    delBtn.type = 'button';
+
+    delBtn.className =
+      'delete-btn';
+
+    delBtn.setAttribute(
+      'aria-label',
+      'Delete photo'
+    );
+
+    delBtn.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2.5" ' +
+      'stroke-linecap="round">' +
+      '<line x1="18" y1="6" x2="6" y2="18"></line>' +
+      '<line x1="6" y1="6" x2="18" y2="18"></line>' +
+      '</svg>';
+
+    delBtn.addEventListener(
+      'click',
+      function () {
+
+        removePhoto(id);
+
+      }
+    );
+
+    return delBtn;
+
+  }
+
+
+  /* ==========================================
+     MAIN GALLERY
+  ========================================== */
+
+  function addCardToDOM(
+    id,
+    url,
+    name,
+    staggerIndex,
+    isFavorite
+  ) {
+
+    var card =
+      document.createElement(
+        'div'
+      );
+
+    card.className =
+      'photo-card';
+
+    card.setAttribute(
+      'data-id',
+      String(id)
+    );
+
+    if (
+      typeof staggerIndex ===
+      'number'
+    ) {
+
+      card.style.animationDelay =
+        (
+          Math.min(
+            staggerIndex,
+            12
+          ) * 0.03
+        ) + 's';
+
+    }
+
+    var img =
+      document.createElement(
+        'img'
+      );
+
+    img.src = url;
+
+    img.alt =
+      name ||
+      'Uploaded photo';
+
+    img.draggable =
+      false;
+
+    card.appendChild(img);
+
+    /*
+      Favorite button ONLY on upload page
+    */
+
+    card.appendChild(
+      makeFavoriteBtn(
+        id,
+        !!isFavorite
+      )
+    );
+
+    /*
+      Delete only here
+    */
+
+    card.appendChild(
+      makeDeleteBtn(id)
+    );
+
+    gallery.appendChild(card);
+
+  }
+
+
+  /* ==========================================
+     PREVIEW ALL
+  ========================================== */
+
+  function makeMasonryFavoriteIndicator() {
+
+    var indicator =
+      document.createElement(
+        'div'
+      );
+
+    indicator.className =
+      'masonry-favorite';
+
+    indicator.setAttribute(
+      'aria-hidden',
+      'true'
+    );
+
+    indicator.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"></path>' +
+      '</svg>';
+
+    return indicator;
+
+  }
+
+
+  function renderMasonry() {
+
+    masonryGallery.innerHTML = '';
+
+    photos.forEach(
+      function (p, idx) {
+
+        var item =
+          document.createElement(
+            'div'
+          );
+
+        item.className =
+          'masonry-item';
+
+        item.setAttribute(
+          'data-id',
+          String(p.id)
+        );
+
+        item.style.animationDelay =
+          (
+            Math.min(idx, 12) *
+            0.03
+          ) + 's';
+
+        var img =
+          document.createElement(
+            'img'
+          );
+
+        img.src =
+          createPhotoURL(p);
+
+        img.alt =
+          p.name ||
+          'Uploaded photo';
+
+        img.draggable =
+          false;
+
+        img.addEventListener(
+          'click',
+          function () {
+
+            openImagePreview(
+              idx
+            );
+
+          }
+        );
+
+        item.appendChild(img);
+
+        /*
+          Favorite indicator ONLY when favorited.
+          Position: TOP RIGHT.
+          Display only, cannot be clicked.
+        */
+
+        if (p.favorite) {
+
+          item.appendChild(
+            makeMasonryFavoriteIndicator()
+          );
+
+        }
+
+        /*
+          NO DELETE BUTTON
+          NO FAVORITE BUTTON
+          IN PREVIEW ALL
+        */
+
+        masonryGallery.appendChild(
+          item
+        );
+
+      }
+    );
+
+  }
+
+
+  function openPreview() {
+
+    if (
+      photos.length === 0
+    ) {
+      return;
+    }
+
+    renderMasonry();
+
+    previewOverlay.classList.add(
+      'open'
+    );
+
+    previewOverlay.scrollTop =
+      0;
+
+    document.body.style.overflow =
+      'hidden';
+
+    if (
+      'inert' in mainContainer
+    ) {
+
+      mainContainer.inert =
+        true;
+
+    }
+
+    doneBtn.focus();
+
+  }
+
+
+  function closePreview() {
+
+    closeImagePreview();
+
+    previewOverlay.classList.remove(
+      'open'
+    );
+
+    document.body.style.overflow =
+      '';
+
+    if (
+      'inert' in mainContainer
+    ) {
+
+      mainContainer.inert =
+        false;
+
+    }
+
+    previewAllBtn.focus();
+
+  }
+
+
+  previewAllBtn.addEventListener(
+    'click',
+    openPreview
+  );
+
+
+  doneBtn.addEventListener(
+    'click',
+    closePreview
+  );
+
+
+  /* ==========================================
+     INDIVIDUAL IMAGE PREVIEW
+     WITH SWIPE
+     FAVORITE = DISPLAY ONLY
+  ========================================== */
+
+  function openImagePreview(index) {
+
+    if (
+      index < 0 ||
+      index >= photos.length
+    ) {
+      return;
+    }
+
+    currentPreviewIndex =
+      index;
+
+    imagePreviewImg.src =
+      createPhotoURL(
+        photos[index]
+      );
+
+    updateFavoriteButton(
+      previewFavoriteBtn,
+      photos[index].favorite
+    );
+
+    imagePreview.classList.add(
+      'open'
+    );
+
+    imagePreviewClose.focus();
+
+  }
+
+
+  function closeImagePreview() {
+
+    imagePreview.classList.remove(
+      'open'
+    );
+
+    currentPreviewIndex =
+      -1;
+
+    setTimeout(
+      function () {
+
+        if (
+          !imagePreview.classList.contains(
+            'open'
+          )
+        ) {
+
+          imagePreviewImg.src =
+            '';
+
+        }
+
+      },
+      250
+    );
+
+  }
+
+
+  /*
+    ไม่มี click event บน previewFavoriteBtn แล้ว
+    เพราะเป็นแค่ indicator แสดงสถานะ
+  */
+
+
+  /*
+    Change image
+  */
+
+  function changePreviewImage(
+    direction
+  ) {
+
+    if (
+      currentPreviewIndex === -1
+    ) {
+      return;
+    }
+
+    var newIndex =
+      currentPreviewIndex +
+      direction;
+
+    if (
+      newIndex < 0 ||
+      newIndex >= photos.length
+    ) {
+
+      return;
+
+    }
+
+    currentPreviewIndex =
+      newIndex;
+
+    imagePreviewInner.classList.remove(
+      'swipe-left',
+      'swipe-right'
+    );
+
+    void imagePreviewInner.offsetWidth;
+
+    imagePreviewInner.classList.add(
+      direction > 0
+        ? 'swipe-left'
+        : 'swipe-right'
+    );
+
+    imagePreviewImg.src =
+      createPhotoURL(
+        photos[newIndex]
+      );
+
+    updateFavoriteButton(
+      previewFavoriteBtn,
+      photos[newIndex].favorite
+    );
+
+  }
+
+
+  /* ==========================================
+     TOUCH SWIPE
+  ========================================== */
+
+  var touchStartX = 0;
+  var touchStartY = 0;
+  var touchStartTime = 0;
+
+  imagePreview.addEventListener(
+    'touchstart',
+    function (e) {
+
+      if (
+        !imagePreview.classList.contains(
+          'open'
+        )
+      ) {
+        return;
+      }
+
+      if (
+        !e.touches ||
+        e.touches.length !== 1
+      ) {
+        return;
+      }
+
+      touchStartX =
+        e.touches[0].clientX;
+
+      touchStartY =
+        e.touches[0].clientY;
+
+      touchStartTime =
+        Date.now();
+
+    },
+    { passive: true }
+  );
+
+
+  imagePreview.addEventListener(
+    'touchend',
+    function (e) {
+
+      if (
+        !imagePreview.classList.contains(
+          'open'
+        )
+      ) {
+        return;
+      }
+
+      if (
+        !e.changedTouches ||
+        e.changedTouches.length !== 1
+      ) {
+        return;
+      }
+
+      var endX =
+        e.changedTouches[0].clientX;
+
+      var endY =
+        e.changedTouches[0].clientY;
+
+      var deltaX =
+        endX - touchStartX;
+
+      var deltaY =
+        endY - touchStartY;
+
+      var elapsed =
+        Date.now() -
+        touchStartTime;
+
+      var horizontal =
+        Math.abs(deltaX) >
+        Math.abs(deltaY) * 1.25;
+
+      var enoughDistance =
+        Math.abs(deltaX) >= 55;
+
+      var quickEnough =
+        elapsed <= 700;
+
+      if (
+        horizontal &&
+        enoughDistance &&
+        quickEnough
+      ) {
+
+        if (deltaX < 0) {
+
+          changePreviewImage(
+            1
+          );
+
+        } else {
+
+          changePreviewImage(
+            -1
+          );
+
+        }
+
+      }
+
+      touchStartX = 0;
+      touchStartY = 0;
+      touchStartTime = 0;
+
+    },
+    { passive: true }
+  );
+
+
+  /* ==========================================
+     KEYBOARD NAVIGATION
+  ========================================== */
+
+  document.addEventListener(
+    'keydown',
+    function (e) {
+
+      if (
+        !imagePreview.classList.contains(
+          'open'
+        )
+      ) {
+        return;
+      }
+
+      if (
+        e.key === 'ArrowLeft'
+      ) {
+
+        e.preventDefault();
+
+        changePreviewImage(
+          -1
+        );
+
+      }
+
+      if (
+        e.key === 'ArrowRight'
+      ) {
+
+        e.preventDefault();
+
+        changePreviewImage(
+          1
+        );
+
+      }
+
+      if (
+        e.key === 'Escape'
+      ) {
+
+        e.preventDefault();
+
+        closeImagePreview();
+
+      }
+
+    }
+  );
+
+
+  /* ==========================================
+     CLOSE IMAGE PREVIEW
+  ========================================== */
+
+  imagePreviewClose.addEventListener(
+    'click',
+    function () {
+
+      closeImagePreview();
+
+    }
+  );
+
+
+  imagePreview.addEventListener(
+    'click',
+    function (e) {
+
+      if (
+        e.target === imagePreview
+      ) {
+
+        closeImagePreview();
+
+      }
+
+    }
+  );
+
+
+  imagePreviewInner.addEventListener(
+    'click',
+    function (e) {
+
+      e.stopPropagation();
+
+    }
+  );
+
+
+  /* ==========================================
+     REMOVE PHOTO
+  ========================================== */
+
+  function animateOutAndRemove(
+    el,
+    onDone
+  ) {
+
+    var done = false;
+
+    function finish() {
+
+      if (done) {
+        return;
+      }
+
+      done = true;
+
+      if (el.parentNode) {
+
+        el.parentNode.removeChild(
+          el
+        );
+
+      }
+
+      onDone();
+
+    }
+
+    el.classList.add(
+      'removing'
+    );
+
+    el.addEventListener(
+      'animationend',
+      finish,
+      { once: true }
+    );
+
+    setTimeout(
+      finish,
+      300
+    );
+
+  }
+
+
+  async function removePhoto(id) {
+
+    var index = -1;
+
+    for (
+      var i = 0;
+      i < photos.length;
+      i++
+    ) {
+
+      if (
+        photos[i].id === id
+      ) {
+
+        index = i;
+
+        break;
+
+      }
+
+    }
+
+    if (index === -1) {
+      return;
+    }
+
+    if (
+      currentPreviewIndex !== -1 &&
+      photos[currentPreviewIndex] &&
+      photos[currentPreviewIndex].id === id
+    ) {
+
+      closeImagePreview();
+
+    }
+
+    var photo =
+      photos[index];
+
+    var url =
+      photo.url;
+
+    photos.splice(
+      index,
+      1
+    );
+
+    var mainCard =
+      gallery.querySelector(
+        '[data-id="' +
+        id +
+        '"]'
+      );
+
+    var masonryItem =
+      masonryGallery.querySelector(
+        '[data-id="' +
+        id +
+        '"]'
+      );
+
+    var pending = 0;
+
+    function maybeFinish() {
+
+      pending--;
+
+      if (
+        pending <= 0
+      ) {
+
+        if (url) {
+
+          URL.revokeObjectURL(
+            url
+          );
+
+        }
+
+      }
+
+    }
+
+    if (mainCard) {
+
+      pending++;
+
+      animateOutAndRemove(
+        mainCard,
+        maybeFinish
+      );
+
+    }
+
+    if (masonryItem) {
+
+      pending++;
+
+      animateOutAndRemove(
+        masonryItem,
+        maybeFinish
+      );
+
+    }
+
+    if (pending === 0) {
+
+      if (url) {
+
+        URL.revokeObjectURL(
+          url
+        );
+
+      }
+
+    }
+
+    try {
+
+      await deletePhotoFromDB(
+        id
+      );
+
+    } catch (error) {
+
+      console.error(
+        'Could not delete photo:',
+        error
+      );
+
+    }
+
+    updateUI();
+
+    if (
+      photos.length === 0 &&
+      previewOverlay.classList.contains(
+        'open'
+      )
+    ) {
+
+      closePreview();
+
+    }
+
+  }
+
+
+  /* ==========================================
+     CLEAR ALL
+  ========================================== */
+
+  clearBtn.addEventListener(
+    'click',
+    clearAll
+  );
+
+
+  async function clearAll() {
+
+    photos.forEach(
+      function (p) {
+
+        if (p.url) {
+
+          URL.revokeObjectURL(
+            p.url
+          );
+
+        }
+
+      }
+    );
+
+    photos = [];
+
+    currentPreviewIndex =
+      -1;
+
+    gallery.innerHTML =
+      '';
+
+    masonryGallery.innerHTML =
+      '';
+
+    closeImagePreview();
+
+    try {
+
+      await clearPhotosFromDB();
+
+    } catch (error) {
+
+      console.error(
+        'Could not clear photos:',
+        error
+      );
+
+    }
+
+    updateUI();
+
+  }
+
+
+  /* ==========================================
+     UI
+  ========================================== */
+
+  function updateUI() {
+
+    var count =
+      photos.length;
+
+    emptyState.style.display =
+      count === 0
+        ? 'flex'
+        : 'none';
+
+    clearBtn.style.display =
+      count > 0
+        ? 'inline-block'
+        : 'none';
+
+    previewAllBtn.style.display =
+      count > 0
+        ? 'inline-flex'
+        : 'none';
+
+    countLabel.textContent =
+      count === 0
+        ? ''
+        : (
+          count +
+          (
+            count === 1
+              ? ' photo selected'
+              : ' photos selected'
+          )
+        );
+
+  }
+
+
+  /* ==========================================
+     START
+  ========================================== */
+
+  initialize();
+
+})();
+</script>
+
+</body>
+</html>
